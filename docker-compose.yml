@@ -1,0 +1,17 @@
+services:
+  chatui:
+    build: .
+    container_name: chatui
+    restart: unless-stopped
+    ports:
+      - "30010:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - ai-net
+
+networks:
+  ai-net:
+    external: true

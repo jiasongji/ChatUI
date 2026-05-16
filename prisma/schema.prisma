@@ -19,6 +19,8 @@ model User {
   updatedAt    DateTime      @updatedAt
   sessions     ChatSession[]
   messages     Message[]
+  createdInviteCodes InviteCode[] @relation("InviteCodeCreator")
+  usedInviteCode     InviteCode?  @relation("InviteCodeUser")
 
   @@index([role])
   @@index([status])
@@ -45,8 +47,9 @@ model Message {
   content   String
   model     String?
   type      String      @default("text")
-  imageUrl  String?
-  createdAt DateTime    @default(now())
+  imageUrl    String?
+  attachments String?
+  createdAt   DateTime    @default(now())
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -54,4 +57,29 @@ model Message {
   @@index([sessionId])
   @@index([userId, sessionId])
   @@index([createdAt])
+}
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  label       String?
+  usedById    String?   @unique
+  usedAt      DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  usedBy      User?     @relation("InviteCodeUser", fields: [usedById], references: [id], onDelete: SetNull)
+  createdBy   User      @relation("InviteCodeCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([createdById])
+}
+
+model ApiConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

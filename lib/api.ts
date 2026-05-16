@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "UPSTREAM_ERROR"
+  | "CONTENT_POLICY"
   | "INTERNAL_ERROR";
 
 export function ok<T>(data: T, init?: ResponseInit) {

@@ -89,3 +89,50 @@ pre {
     opacity: 1;
   }
 }
+
+.loading-progress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    #10a37f 0%,
+    #1d9bf0 50%,
+    #10a37f 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.dark .loading-progress-bar {
+  background: linear-gradient(
+    90deg,
+    #10a37f 0%,
+    #34d399 50%,
+    #10a37f 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}

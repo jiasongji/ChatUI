@@ -11,6 +11,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,7 +39,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
         mode === "register"
-          ? { username, email, password }
+          ? { username, email, password, inviteCode }
           : { email, password }
       )
     });
@@ -113,6 +114,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
                 className={inputClass}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                placeholder="起一个名字，至少 2 个字符"
                 autoComplete="name"
                 required
               />
@@ -121,13 +123,14 @@ export function AuthCard({ mode }: { mode: Mode }) {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-surface-600 dark:text-surface-300">
-              邮箱
+              邮箱地址
             </label>
             <input
               className={inputClass}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
               autoComplete="email"
               required
             />
@@ -142,12 +145,28 @@ export function AuthCard({ mode }: { mode: Mode }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === "login" ? "输入你的密码" : "设置密码，至少 8 位"}
               autoComplete={
                 mode === "login" ? "current-password" : "new-password"
               }
               required
             />
           </div>
+
+          {mode === "register" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-surface-600 dark:text-surface-300">
+                邀请码
+              </label>
+              <input
+                className={inputClass}
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="输入管理员提供的邀请码"
+                required
+              />
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
@@ -185,14 +204,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
 
 function SunIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="12" r="5" />
       <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
     </svg>
@@ -201,14 +213,7 @@ function SunIcon() {
 
 function MoonIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
     </svg>
   );

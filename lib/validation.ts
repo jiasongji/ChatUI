@@ -15,7 +15,8 @@ export const passwordSchema = z
 export const registerSchema = z.object({
   username: z.string().trim().min(2, "用户名至少 2 位").max(40, "用户名过长"),
   email: emailSchema,
-  password: passwordSchema
+  password: passwordSchema,
+  inviteCode: z.string().trim().min(1, "邀请码不能为空")
 });
 
 export const loginSchema = z.object({

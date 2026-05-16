@@ -75,10 +75,13 @@ export function ChatClient({ user }: { user: User }) {
   const [dark, setDark] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesAreaRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastFailedRef = useRef<{ prompt: string; mode: "chat" | "image"; model: string; aspectRatio: string; sessionId: string } | null>(null);
   const approved = user.status === "approved";
 
   useEffect(() => {
@@ -106,6 +109,17 @@ export function ChatClient({ user }: { user: User }) {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    const area = messagesAreaRef.current;
+    if (!area) return;
+    const onScroll = () => {
+      const gap = area.scrollHeight - area.scrollTop - area.clientHeight;
+      setShowScrollBtn(gap > 120);
+    };
+    area.addEventListener("scroll", onScroll, { passive: true });
+    return () => area.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (loading) {
@@ -270,6 +284,8 @@ export function ChatClient({ user }: { user: User }) {
       const currentModel = currentMode === "chat" ? model : imageModel;
       const endpoint = currentMode === "chat" ? "/api/chat" : "/api/images";
 
+      lastFailedRef.current = { prompt: promptText, mode: currentMode, model: currentModel, aspectRatio, sessionId };
+
       const fd = new FormData();
       if (currentMode === "chat") {
         fd.append("sessionId", sessionId);
@@ -291,6 +307,7 @@ export function ChatClient({ user }: { user: User }) {
       setInput("");
       setSelectedFiles([]);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
+      lastFailedRef.current = null;
 
       if (currentMode === "chat") {
         setMessages((cur) => [...cur, data.userMessage, data.assistantMessage]);
@@ -323,6 +340,54 @@ export function ChatClient({ user }: { user: User }) {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
     router.refresh();
+  }
+
+  async function retry() {
+    const failed = lastFailedRef.current;
+    if (!failed || loading) return;
+    setError("");
+    setLoading(true);
+    setLoadingMode(failed.mode);
+    setLoadingPrompt(failed.prompt);
+    requestNotificationPermission();
+
+    try {
+      const endpoint = failed.mode === "chat" ? "/api/chat" : "/api/images";
+      const fd = new FormData();
+      if (failed.mode === "chat") {
+        fd.append("sessionId", failed.sessionId);
+        fd.append("model", failed.model);
+        fd.append("content", failed.prompt);
+      } else {
+        fd.append("sessionId", failed.sessionId);
+        fd.append("model", failed.model);
+        fd.append("prompt", failed.prompt);
+        if (failed.aspectRatio) fd.append("size", failed.aspectRatio);
+      }
+
+      const data = await parseResponse(
+        await fetch(endpoint, { method: "POST", body: fd })
+      );
+
+      lastFailedRef.current = null;
+      if (failed.mode === "chat") {
+        setMessages((cur) => [...cur, data.userMessage, data.assistantMessage]);
+      } else {
+        setMessages((cur) => [...cur, data.userMessage, data.imageMessage]);
+      }
+      await refreshSessions();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "重试失败，请稍后再试";
+      setError(errMsg);
+    } finally {
+      setLoading(false);
+      setLoadingMode(null);
+      setLoadingPrompt("");
+    }
+  }
+
+  function scrollToBottom() {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -573,7 +638,7 @@ export function ChatClient({ user }: { user: User }) {
         )}
 
         {/* messages area */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={messagesAreaRef} className="min-h-0 flex-1 overflow-y-auto relative">
           {messages.length === 0 && !loading ? (
             <div className="flex h-full items-center justify-center p-4">
               <div className="text-center max-w-md">
@@ -754,19 +819,43 @@ export function ChatClient({ user }: { user: User }) {
               <div ref={scrollRef} />
             </div>
           )}
+
+          {/* scroll to bottom button */}
+          {showScrollBtn && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              回到最新
+            </button>
+          )}
         </div>
 
         {/* error bar */}
         {error && (
           <div className="mx-auto w-full max-w-3xl px-4 pb-2">
             <div className="flex items-center justify-between rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-2.5 text-sm text-red-700 dark:text-red-400">
-              <span>{error}</span>
-              <button
-                onClick={() => setError("")}
-                className="ml-2 text-red-400 hover:text-red-600"
-              >
-                <CloseIcon />
-              </button>
+              <span className="flex-1 min-w-0">{error}</span>
+              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                {lastFailedRef.current && (
+                  <button
+                    onClick={() => void retry()}
+                    disabled={loading}
+                    className="rounded-md bg-red-100 dark:bg-red-800/50 px-2.5 py-1 text-xs font-medium hover:bg-red-200 dark:hover:bg-red-800 transition-colors disabled:opacity-50"
+                  >
+                    重试
+                  </button>
+                )}
+                <button
+                  onClick={() => setError("")}
+                  className="text-red-400 hover:text-red-600"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             </div>
           </div>
         )}

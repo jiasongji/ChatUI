@@ -16,6 +16,8 @@ export function ApiConfigClient() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; elapsed?: number; models?: string[]; error?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
@@ -62,6 +64,32 @@ export function ApiConfigClient() {
       setError(err instanceof Error ? err.message : "保存失败");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    setTestResult(null);
+    setError("");
+    try {
+      const apiKey = edits["openai_api_key"] || "";
+      const baseUrl = edits["openai_base_url"] || "";
+      if (!apiKey || !baseUrl) {
+        setError("API Key 和 Base URL 不能为空");
+        return;
+      }
+      const res = await fetch("/api/admin/api-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey, baseUrl }),
+      });
+      const json = await res.json();
+      if (!json?.ok) throw new Error(json?.error?.message || "测试失败");
+      setTestResult(json.data);
+    } catch (err) {
+      setTestResult({ success: false, error: err instanceof Error ? err.message : "测试失败" });
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -130,12 +158,40 @@ export function ApiConfigClient() {
             {loading ? "保存中..." : "保存配置"}
           </button>
           <button
+            onClick={() => void testConnection()}
+            disabled={testing}
+            className="rounded-md border border-brand-500 text-brand-500 px-4 py-2 text-sm font-medium hover:bg-brand-50 dark:hover:bg-brand-900/20 disabled:opacity-50 transition-colors"
+          >
+            {testing ? "测试中..." : "测试连接"}
+          </button>
+          <button
             onClick={() => void load()}
             className="rounded-md border border-surface-200 dark:border-surface-700 px-4 py-2 text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
           >
             重置
           </button>
         </div>
+
+        {testResult && (
+          <div className={`rounded-lg border px-3 py-2.5 text-sm ${
+            testResult.success
+              ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
+              : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+          }`}>
+            {testResult.success ? (
+              <div className="space-y-1">
+                <p className="font-medium">
+                  连接成功 ({testResult.elapsed}ms)
+                  {testResult.models && testResult.models.length > 0 && (
+                    <>，可用模型: {testResult.models.join(", ")}</>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <p className="font-medium">连接失败: {testResult.error}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* info */}

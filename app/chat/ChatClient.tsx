@@ -75,8 +75,10 @@ export function ChatClient({ user }: { user: User }) {
   const [dark, setDark] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const topRef = useRef<HTMLDivElement | null>(null);
   const messagesAreaRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -114,8 +116,9 @@ export function ChatClient({ user }: { user: User }) {
     const area = messagesAreaRef.current;
     if (!area) return;
     const onScroll = () => {
-      const gap = area.scrollHeight - area.scrollTop - area.clientHeight;
-      setShowScrollBtn(gap > 120);
+      const gapBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
+      setShowScrollBottom(gapBottom > 120);
+      setShowScrollTop(area.scrollTop > 200);
     };
     area.addEventListener("scroll", onScroll, { passive: true });
     return () => area.removeEventListener("scroll", onScroll);
@@ -390,6 +393,10 @@ export function ChatClient({ user }: { user: User }) {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 
+  function scrollToTop() {
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -569,7 +576,7 @@ export function ChatClient({ user }: { user: User }) {
       </aside>
 
       {/* ── main ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col relative">
         {/* header */}
         <header className="flex items-center justify-between border-b border-surface-200 dark:border-surface-700 px-4 py-2">
           <div className="flex items-center gap-2">
@@ -638,7 +645,7 @@ export function ChatClient({ user }: { user: User }) {
         )}
 
         {/* messages area */}
-        <div ref={messagesAreaRef} className="min-h-0 flex-1 overflow-y-auto relative">
+        <div ref={messagesAreaRef} className="min-h-0 flex-1 overflow-y-auto">
           {messages.length === 0 && !loading ? (
             <div className="flex h-full items-center justify-center p-4">
               <div className="text-center max-w-md">
@@ -656,7 +663,7 @@ export function ChatClient({ user }: { user: User }) {
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+            <div className="mx-auto max-w-3xl space-y-5 px-4 py-6"><div ref={topRef} />
               {messages.map((msg) => {
                 const attachments = parseAttachments(msg.attachments);
                 return (
@@ -820,19 +827,32 @@ export function ChatClient({ user }: { user: User }) {
             </div>
           )}
 
-          {/* scroll to bottom button */}
-          {showScrollBtn && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
-            >
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-              回到最新
-            </button>
-          )}
         </div>
+
+        {/* scroll to top button */}
+        {showScrollTop && (
+          <button
+            onClick={scrollToTop}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+            回到顶部
+          </button>
+        )}
+        {/* scroll to bottom button */}
+        {showScrollBottom && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            回到最新
+          </button>
+        )}
 
         {/* error bar */}
         {error && (

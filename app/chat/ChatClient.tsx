@@ -75,14 +75,17 @@ export function ChatClient({ user }: { user: User }) {
   const [dark, setDark] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [showScrollBottom, setShowScrollBottom] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [scrollNavVisible, setScrollNavVisible] = useState(false);
+  const [scrollNavFading, setScrollNavFading] = useState(false);
+  const [scrollNearTop, setScrollNearTop] = useState(false);
+  const [scrollNearBottom, setScrollNearBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const messagesAreaRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFailedRef = useRef<{ prompt: string; mode: "chat" | "image"; model: string; aspectRatio: string; sessionId: string } | null>(null);
   const approved = user.status === "approved";
 
@@ -110,18 +113,39 @@ export function ChatClient({ user }: { user: User }) {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!scrollNearBottom && messages.length > 0) showScrollNav();
   }, [messages, loading]);
+
+  function showScrollNav() {
+    setScrollNavVisible(true);
+    setScrollNavFading(false);
+    if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
+    scrollHideTimer.current = setTimeout(() => {
+      setScrollNavFading(true);
+      setTimeout(() => setScrollNavVisible(false), 400);
+    }, 2500);
+  }
 
   useEffect(() => {
     const area = messagesAreaRef.current;
     if (!area) return;
     const onScroll = () => {
       const gapBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
-      setShowScrollBottom(gapBottom > 120);
-      setShowScrollTop(area.scrollTop > 200);
+      setScrollNearBottom(gapBottom < 80);
+      setScrollNearTop(area.scrollTop < 80);
+      const needNav = gapBottom > 120 || area.scrollTop > 200;
+      if (needNav) showScrollNav();
+      else {
+        setScrollNavVisible(false);
+        setScrollNavFading(false);
+        if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
+      }
     };
     area.addEventListener("scroll", onScroll, { passive: true });
-    return () => area.removeEventListener("scroll", onScroll);
+    return () => {
+      area.removeEventListener("scroll", onScroll);
+      if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -390,10 +414,14 @@ export function ChatClient({ user }: { user: User }) {
   }
 
   function scrollToBottom() {
+    setScrollNavVisible(false);
+    if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 
   function scrollToTop() {
+    setScrollNavVisible(false);
+    if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -829,29 +857,32 @@ export function ChatClient({ user }: { user: User }) {
 
         </div>
 
-        {/* scroll to top button */}
-        {showScrollTop && (
-          <button
-            onClick={scrollToTop}
-            className="absolute top-16 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
-          >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-            回到顶部
-          </button>
-        )}
-        {/* scroll to bottom button */}
-        {showScrollBottom && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 px-3 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 shadow-lg hover:bg-surface-200 dark:hover:bg-surface-600 transition-all animate-fade-in"
-          >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-            回到最新
-          </button>
+        {/* scroll navigation */}
+        {scrollNavVisible && (
+          <div className={`absolute right-3 bottom-24 z-10 flex flex-col gap-1.5 transition-opacity duration-300 ${scrollNavFading ? 'opacity-0' : 'opacity-100'}`}>
+            {!scrollNearTop && (
+              <button
+                onClick={scrollToTop}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/80 dark:bg-surface-600/80 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
+                title="回到顶部"
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+              </button>
+            )}
+            {!scrollNearBottom && (
+              <button
+                onClick={scrollToBottom}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/80 dark:bg-surface-600/80 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
+                title="回到最新"
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
 
         {/* error bar */}

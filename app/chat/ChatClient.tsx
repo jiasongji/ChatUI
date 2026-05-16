@@ -77,6 +77,7 @@ export function ChatClient({ user }: { user: User }) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [scrollNavVisible, setScrollNavVisible] = useState(false);
   const [scrollNavFading, setScrollNavFading] = useState(false);
+  const [scrollNavCollapsed, setScrollNavCollapsed] = useState(false);
   const [scrollNearTop, setScrollNearTop] = useState(false);
   const [scrollNearBottom, setScrollNearBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -857,30 +858,48 @@ export function ChatClient({ user }: { user: User }) {
 
         </div>
 
-        {/* scroll navigation */}
-        {scrollNavVisible && (
-          <div className={`absolute right-3 bottom-24 z-10 flex flex-col gap-1.5 transition-opacity duration-300 ${scrollNavFading ? 'opacity-0' : 'opacity-100'}`}>
-            {!scrollNearTop && (
-              <button
-                onClick={scrollToTop}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/80 dark:bg-surface-600/80 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
-                title="回到顶部"
-              >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                </svg>
-              </button>
-            )}
-            {!scrollNearBottom && (
-              <button
-                onClick={scrollToBottom}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/80 dark:bg-surface-600/80 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
-                title="回到最新"
-              >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-              </button>
+        {/* scroll navigation — right side, vertically centered */}
+        {(scrollNavVisible || scrollNavCollapsed) && (
+          <div className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-1 transition-all duration-300 ${
+            scrollNavFading && !scrollNavCollapsed ? 'opacity-0' : 'opacity-100'
+          }`}>
+            {/* collapse/expand toggle */}
+            <button
+              onClick={() => setScrollNavCollapsed(c => !c)}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors"
+              title={scrollNavCollapsed ? "展开导航" : "收起导航"}
+            >
+              <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                {scrollNavCollapsed
+                  ? <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  : <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />}
+              </svg>
+            </button>
+            {!scrollNavCollapsed && (
+              <>
+                {!scrollNearTop && (
+                  <button
+                    onClick={scrollToTop}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/70 dark:bg-surface-600/70 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
+                    title="回到顶部"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                  </button>
+                )}
+                {!scrollNearBottom && (
+                  <button
+                    onClick={scrollToBottom}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-200/70 dark:bg-surface-600/70 text-surface-600 dark:text-surface-300 shadow-sm backdrop-blur-sm hover:bg-surface-300 dark:hover:bg-surface-500 active:scale-90 transition-all"
+                    title="回到最新"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}

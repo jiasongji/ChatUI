@@ -1,4 +1,4 @@
-# ChatUI 运维手册（阿里云服务器 / 宝塔面板）
+# ChatUI 运维手册（腾讯云香港服务器 / 宝塔面板）
 
 > 本文档面向 `/www/wwwroot/chat.rcrc.eu.org/ChatUI` 部署目录的部署、升级、卸载清理操作。
 > 镜像采用「拉取预构建」模式，**服务器无需编译**。
@@ -12,8 +12,8 @@
         │ proxy_pass http://127.0.0.1:30010
         ▼
 ┌─────────────────────────────────┐
-│  chatui 容器 (jiasongji/chatui) │  端口 30010:3000
-│  - 默认 bridge 网络              │
+│  chatui 容器 (jiasongji/chatui) │  host 网络，PORT=30010 直监听宿主机 30010
+│  - network_mode: host           │
 │  - 数据卷 ./data:/app/data       │
 └─────────────────────────────────┘
         │ HTTPS（公网，非容器互联）
@@ -22,12 +22,14 @@
    （openai_base_url 存于数据库 ApiConfig 表，优先级高于 .env）
 ```
 
-**关键事实（与历史文档的差异，已校正）**：
-- ChatUI 跑在 **默认 bridge 网络**，**不是 host 模式**，也**不需要** `ai-net` 外部网络。
-  （旧文档假设 CPA 同主机用 `ai-net` 互联；现 CPA 在公网，用 HTTPS 访问。）
+**关键事实**：
+- ChatUI 跑在 **host 网络**（`network_mode: host`），应用通过 `PORT=30010` 直接监听宿主机 30010。
+- **为什么用 host 网络**：本机 Docker `daemon.json` 设了 `"iptables": false`（配合 UFW 防火墙），
+  Docker 不为新建 bridge 网络生成出站 NAT/转发规则，导致 bridge 容器无法访问公网（CPA 超时）。
+  host 模式直接复用宿主机网络栈出站，彻底绕开该问题。**所有需要出站公网的容器都应用 host 网络。**
 - AI 上游地址以 **数据库 `ApiConfig` 表** 为准（当前 `https://cpa.rcrc.eu.org/v1`），
-  `.env` 里的 `OPENAI_BASE_URL=http://cliproxyapi:8317/v1` 已失效，仅作 fallback。
-- 容器端口映射 `30010:3000`，宝塔 Nginx 反代到 `127.0.0.1:30010`。
+  `.env` 里的 `OPENAI_BASE_URL` 仅作 fallback。CPA 不在本机，**不可**用 `http://cliproxyapi:8317/v1`。
+- 宝塔 Nginx 反代到 `127.0.0.1:30010`。
 
 ---
 
@@ -69,7 +71,7 @@ docker ps | grep chatui                              # 应为 healthy
 curl -I http://127.0.0.1:30010/api/auth/me          # HTTP 401 为正常（未登录）
 ```
 
-> 注意：本服务器 Docker 26.1.4，用**连字符版** `docker-compose`，不能用 `docker compose` 子命令。
+> 注意：本服务器 Docker 26.1.4，仅支持**连字符版** `docker-compose`（v2.27.1），`docker compose` 子命令不可用。
 
 ---
 
@@ -305,9 +307,32 @@ CI/CD 推送镜像用的 Docker Hub Token（`github-actions-chatui`，配置在 
 
 | 现象 | 排查 |
 |------|------|
-| 容器 unhealthy / 起不来 | `docker logs chatui`；检查 `.env` 必填项、`data/` 权限 |
+| 容器 unhealthy / 起不来 | `docker logs chatui`；检查 `.env` 必填项、`data/` 权限；host 模式下确认 30010 未被占用 |
+| **API 超时 / 后台登录超时** | **见下方「API 超时专项」**——多半是容器出站网络问题 |
 | AI 对话报错 | 查日志；确认上游 `https://cpa.rcrc.eu.org/v1` 可达；后台 `/admin/api-config` 测试连接 |
 | 图片生成 502 | 99% 是 Nginx `proxy_read_timeout` < 600s（见第六节） |
 | 升级后数据丢失 | 不应发生；`./data` 是挂载卷。检查 `docker-compose.server.yml` 的 volumes 行 |
 | 容器名冲突无法启动 | `docker rm -f chatui` 后重新 `up -d` |
+
+### API 超时专项（容器出站网络）
+
+**症状**：前端 API 接口一直超时、后台登录也超时，但接口配置本身没问题。
+
+**首选诊断**（对比宿主机 vs 容器出站）：
+```bash
+# 宿主机能通 CPA 吗？（正常应返回 HTTP 401，没带 key）
+curl -sS -m 10 -o /dev/null -w 'host->CPA: HTTP %{http_code}\n' https://cpa.rcrc.eu.org/v1/models
+
+# 容器能通 CPA 吗？
+docker exec chatui curl -sS -m 10 -o /dev/null -w 'container->CPA: HTTP %{http_code}\n' https://cpa.rcrc.eu.org/v1/models
+```
+
+- 宿主机通、容器不通 → **容器出站网络问题**（本机最常见根因）。
+- 两者都不通 → CPA 上游或 DNS 问题，检查 `getent hosts cpa.rcrc.eu.org` 和 CPA 服务本身。
+
+**根因（本机）**：`/etc/docker/daemon.json` 设了 `"iptables": false`，Docker 不为新建 bridge 网络生成
+出站 NAT/转发规则，bridge 容器无法访问公网。
+
+**根治**：用 **host 网络**（`docker-compose.server.yml` 已配置 `network_mode: host` + `PORT=30010`），
+容器直接复用宿主机网络栈，绕开 bridge iptables 问题。**切勿改回 bridge + 端口映射**，否则会复发。
 

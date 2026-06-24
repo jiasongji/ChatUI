@@ -34,7 +34,8 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x ./scripts/start.sh ./scripts/healthcheck.sh ./scripts/smoke-test.sh
 
 EXPOSE 3000
+# 探测端口跟随 PORT 环境变量（默认 3000；host 网络部署时 compose 会设 PORT=30010）
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD sh -c 'code=$(curl -sS -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/auth/me || true); [ "$code" = "200" ] || [ "$code" = "401" ]'
+  CMD sh -c 'code=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT:-3000}/api/auth/me" || true); [ "$code" = "200" ] || [ "$code" = "401" ]'
 
 CMD ["./scripts/start.sh"]

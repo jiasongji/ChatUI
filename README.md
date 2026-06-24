@@ -85,7 +85,7 @@ docker compose up -d
 
 访问 `http://localhost:3000`，使用管理员账号登录。
 
-> 服务器部署细节见 [`deploy/README-server.md`](deploy/README-server.md)（含 Nginx 反代、备份、阿里云服务器运维）。
+> 服务器部署细节见 [`deploy/README-server.md`](deploy/README-server.md)（含 Nginx 反代、备份、host 网络生产运维）。
 
 ### 更新版本
 
@@ -217,22 +217,27 @@ tar xzf chatui-backup-2026-05-15.tar.gz
 
 ### Docker 网络配置
 
-如果 AI API 也是 Docker 容器（如 CLIProxyAPI），可使用共享网络，通过容器名访问：
+默认部署用端口映射（`ports: 3000:3000`），AI 提供商通过 `OPENAI_BASE_URL` 访问，无特殊网络要求。
 
-```yaml
-# docker-compose.yml
-services:
-  chatui:
-    image: jiasongji/chatui:latest
-    environment:
-      - OPENAI_BASE_URL=http://cliproxyapi:8317/v1  # 使用容器名
-    networks:
-      - ai-net
+**两种典型场景**：
 
-networks:
-  ai-net:
-    external: true
-```
+1. **AI 提供商在公网（推荐）**：保持默认即可，`OPENAI_BASE_URL` 填公网 HTTPS 地址。
+
+2. **AI 提供商是同主机的另一个容器**：两种接法，任选其一：
+   - **host 网络（最省心）**：`network_mode: host`，`OPENAI_BASE_URL` 直接用 `http://127.0.0.1:<端口>/v1`。
+     适合服务器开了 UFW / Docker `iptables:false` 等导致 bridge 出站受限的环境。
+   - **共享网络**：两个容器接入同一自定义网络，`OPENAI_BASE_URL` 用容器名访问。
+     ```yaml
+     services:
+       chatui:
+         image: jiasongji/chatui:latest
+         environment:
+           - OPENAI_BASE_URL=http://<ai容器名>:<端口>/v1
+         networks: [shared]
+     networks:
+       shared:
+         external: true
+     ```
 
 ## 本地开发
 

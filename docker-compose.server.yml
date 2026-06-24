@@ -1,19 +1,21 @@
-# ChatUI - 阿里云服务器专用配置（自包含，可移植）
+# ChatUI - 服务器部署配置（自包含，可移植）
 #
 # 设计原则：这个目录可以整个打包复制到另一台服务器的相同路径
 #           /www/wwwroot/chat.rcrc.eu.org/ChatUI/ 下，docker-compose up -d 直接启动。
 #
-# 不依赖任何外部 Docker 网络：AI 上游（CPA）通过公网 HTTPS 访问
-# （openai_base_url 配置在数据库 ApiConfig 表 / .env，默认 https://cpa.rcrc.eu.org/v1）。
+# 网络模式：host。容器直接使用宿主机网络栈，应用通过 PORT 环境变量监听 30010。
+#   - AI 上游（CPA）通过公网 HTTPS 出站完全不受 Docker bridge 的 iptables/防火墙影响
+#     （UFW、daemon.json 的 iptables 设置等都不会干扰容器出站）。
+#   - 宝塔 Nginx 反代到 127.0.0.1:30010，与 host 网络下应用监听端口一致。
 #
-# 用法（服务器 Docker 26.1.4，用连字符版 docker-compose）：
+# 用法：
 #   docker-compose -f docker-compose.server.yml up -d      启动
 #   docker-compose -f docker-compose.server.yml pull        拉取最新镜像
 #   docker-compose -f docker-compose.server.yml up -d       更新（先 pull 再 up）
 #   docker-compose -f docker-compose.server.yml logs -f     看日志
 #   docker-compose -f docker-compose.server.yml down        停止
 #
-# 端口：30010:3000（Nginx 反代到 127.0.0.1:30010）
+# 端口：host 模式下应用直接监听宿主机 30010（Nginx 反代到 127.0.0.1:30010）
 
 services:
   chatui:
@@ -21,9 +23,17 @@ services:
     pull_policy: always
     container_name: chatui
     restart: unless-stopped
-    ports:
-      - "30010:3000"
+    network_mode: host
+    environment:
+      - PORT=30010
     env_file:
       - .env
     volumes:
       - ./data:/app/data
+    # 覆盖镜像默认 healthcheck：host 模式下应用监听 PORT(30010)，而非镜像内的 3000
+    healthcheck:
+      test: ["CMD-SHELL", "code=$$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:30010/api/auth/me || true); [ \"$${code}\" = '200' ] || [ \"$${code}\" = '401' ]"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3

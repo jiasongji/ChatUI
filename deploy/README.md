@@ -64,7 +64,7 @@ docker compose up -d
 | OpenAI 官方 | `https://api.openai.com/v1` |
 | Azure OpenAI | `https://<resource>.openai.azure.com/...` |
 | Ollama（本地） | `http://localhost:11434/v1` |
-| CLIProxyAPI（Docker） | `http://cliproxyapi:8317/v1` |
+| 同机 Docker 容器 | `http://<容器名或127.0.0.1>:<端口>/v1`（host 网络用 127.0.0.1） |
 | 自建代理 | 你的接口地址 |
 
 ## 运维命令
@@ -102,20 +102,21 @@ server {
 
 ## Docker 网络配置（可选）
 
-如果 AI API 也是 Docker 容器，可使用共享网络：
+默认部署（`ports: 3000:3000`）无需特殊网络配置。若 AI 提供商是同主机的另一个容器：
+
+- **host 网络（最省心）**：`network_mode: host`，`OPENAI_BASE_URL` 用 `http://127.0.0.1:<端口>/v1`。
+  适合服务器开了 UFW / Docker `iptables:false` 导致 bridge 出站受限的环境。
+- **共享网络**：两容器接入同一自定义网络，用容器名访问：
 
 ```yaml
-# docker-compose.yml
 services:
   chatui:
     image: jiasongji/chatui:latest
     environment:
-      - OPENAI_BASE_URL=http://cliproxyapi:8317/v1
-    networks:
-      - ai-net
-
+      - OPENAI_BASE_URL=http://<ai容器名>:<端口>/v1
+    networks: [shared]
 networks:
-  ai-net:
+  shared:
     external: true
 ```
 

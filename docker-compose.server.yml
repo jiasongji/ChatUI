@@ -1,13 +1,19 @@
-# ChatUI - 阿里云服务器专用配置
+# ChatUI - 阿里云服务器专用配置（自包含，可移植）
 #
-# 用法（服务器上用连字符版 docker-compose）：
-#   docker-compose -f docker-compose.server.yml pull
-#   docker-compose -f docker-compose.server.yml up -d
-#   docker-compose -f docker-compose.server.yml logs -f
+# 设计原则：这个目录可以整个打包复制到另一台服务器的相同路径
+#           /www/wwwroot/chat.rcrc.eu.org/ChatUI/ 下，docker-compose up -d 直接启动。
 #
-# 与通用版 docker-compose.yml 的区别：
-#   - 端口：30010:3000（Nginx 反代到 127.0.0.1:30010）
-#   - 网络：接入外部 ai-net，与 CPA（cliproxyapi）容器互联
+# 不依赖任何外部 Docker 网络：AI 上游（CPA）通过公网 HTTPS 访问
+# （openai_base_url 配置在数据库 ApiConfig 表 / .env，默认 https://cpa.rcrc.eu.org/v1）。
+#
+# 用法（服务器 Docker 26.1.4，用连字符版 docker-compose）：
+#   docker-compose -f docker-compose.server.yml up -d      启动
+#   docker-compose -f docker-compose.server.yml pull        拉取最新镜像
+#   docker-compose -f docker-compose.server.yml up -d       更新（先 pull 再 up）
+#   docker-compose -f docker-compose.server.yml logs -f     看日志
+#   docker-compose -f docker-compose.server.yml down        停止
+#
+# 端口：30010:3000（Nginx 反代到 127.0.0.1:30010）
 
 services:
   chatui:
@@ -21,10 +27,3 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    networks:
-      - ai-net
-
-networks:
-  ai-net:
-    name: ai-net
-    external: true

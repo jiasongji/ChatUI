@@ -65,6 +65,8 @@ AI 聊天 Web 应用
 
 ### 一键部署（推荐）
 
+镜像 `jiasongji/chatui:latest` 已发布到 Docker Hub，**服务器无需编译**，拉取即运行。
+
 ```bash
 mkdir chatui && cd chatui
 
@@ -77,13 +79,25 @@ cp .env.example .env
 # 编辑 .env：设置 SESSION_SECRET、ADMIN_EMAIL、ADMIN_PASSWORD、OPENAI_API_KEY
 nano .env
 
-# 启动
+# 启动（自动拉取镜像，约 30 秒）
 docker compose up -d
 ```
 
 访问 `http://localhost:3000`，使用管理员账号登录。
 
-### 从源码构建
+> 服务器部署细节见 [`deploy/README-server.md`](deploy/README-server.md)（含 Nginx 反代、备份、阿里云服务器运维）。
+
+### 更新版本
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+> 更新不会丢失数据，数据库和上传文件都挂载在 `./data/` 目录。
+
+### 从源码构建（可选）
+
+如需自行构建镜像：
 
 ```bash
 git clone https://github.com/jiasongji/ChatUI.git
@@ -143,7 +157,9 @@ ChatUI/
 ├── deploy/             # 通用部署模板
 │   ├── docker-compose.yml
 │   ├── .env.example
-│   └── README.md
+│   ├── README.md
+│   └── README-server.md
+├── .github/workflows/  # CI/CD（自动构建发布 Docker 镜像）
 ├── screenshots/        # 截图
 ├── Dockerfile
 └── docker-compose.yml
@@ -198,14 +214,6 @@ tar czf chatui-backup-$(date +%F).tar.gz data/
 # 恢复
 tar xzf chatui-backup-2026-05-15.tar.gz
 ```
-
-### 版本更新
-
-```bash
-docker compose pull && docker compose up -d
-```
-
-> 更新不会丢失数据，数据库和上传文件都挂载在 `./data/` 目录。
 
 ### Docker 网络配置
 

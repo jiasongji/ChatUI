@@ -1,0 +1,30 @@
+# ChatUI - 阿里云服务器专用配置
+#
+# 用法（服务器上用连字符版 docker-compose）：
+#   docker-compose -f docker-compose.server.yml pull
+#   docker-compose -f docker-compose.server.yml up -d
+#   docker-compose -f docker-compose.server.yml logs -f
+#
+# 与通用版 docker-compose.yml 的区别：
+#   - 端口：30010:3000（Nginx 反代到 127.0.0.1:30010）
+#   - 网络：接入外部 ai-net，与 CPA（cliproxyapi）容器互联
+
+services:
+  chatui:
+    image: jiasongji/chatui:latest
+    pull_policy: always
+    container_name: chatui
+    restart: unless-stopped
+    ports:
+      - "30010:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - ai-net
+
+networks:
+  ai-net:
+    name: ai-net
+    external: true

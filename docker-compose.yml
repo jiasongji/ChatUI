@@ -1,15 +1,10 @@
 # ChatUI - Docker Compose（拉取预构建镜像模式）
 #
 # 镜像由 GitHub Actions 自动构建并发布到 Docker Hub：jiasongji/chatui:latest
-# 服务器无需本地编译，docker compose pull && up -d 即可秒级更新。
+# 服务器无需本地编译，docker-compose pull && docker-compose up -d 即可秒级更新。
 #
-# 可用环境变量（在 .env 或启动命令中覆盖）：
-#   CHATUI_PORT        - 宿主机映射端口（默认 3000）
-#   COMPOSE_PROFILES   - 启用哪些 profile（见下）
-#
-# Profile 说明：
-#   （默认）              - 标准 3000:3000 单机部署
-#   server               - 阿里云服务器：30010:3000 + ai-net 外部网络（与 CPA 互联）
+# 这是通用部署配置（3000:3000）。
+# 阿里云服务器专用配置见 docker-compose.server.yml（30010:3000 + ai-net）。
 
 services:
   chatui:
@@ -23,25 +18,3 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    profiles: ["", default]
-
-  # 阿里云服务器专用（COMPOSE_PROFILES=server 启用）
-  chatui-server:
-    image: jiasongji/chatui:latest
-    pull_policy: always
-    container_name: chatui
-    restart: unless-stopped
-    ports:
-      - "30010:3000"
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-    networks:
-      - ai-net
-    profiles: ["server"]
-
-networks:
-  ai-net:
-    name: ai-net
-    external: true

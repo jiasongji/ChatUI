@@ -42,23 +42,25 @@ docker compose up -d
 
 服务器路径：`/www/wwwroot/chat.rcrc.eu.org/ChatUI`
 
+> 阿里云服务器用专用配置文件 `docker-compose.server.yml`（端口 `30010:3000`，接入 `ai-net` 外部网络与 CPA 互联）。
+> 注意：该服务器 Docker 26.1.4，需用**连字符版** `docker-compose`（`docker compose` 子命令不可用）。
+
 ```bash
 cd /www/wwwroot/chat.rcrc.eu.org/ChatUI
+DC="docker-compose -f docker-compose.server.yml"
 
 # 更新到最新版（秒级，自动拉取最新镜像）
-docker compose --profile server pull && docker compose --profile server up -d
+$DC pull && $DC up -d
 
 # 查看日志
 docker logs -f chatui
 
 # 重启
-docker compose --profile server restart
+$DC restart
 
 # 停止
-docker compose --profile server down
+$DC down
 ```
-
-> 阿里云服务器使用 `server` profile（端口 `30010:3000`，接入 `ai-net` 外部网络与 CPA 互联）。
 
 ---
 
